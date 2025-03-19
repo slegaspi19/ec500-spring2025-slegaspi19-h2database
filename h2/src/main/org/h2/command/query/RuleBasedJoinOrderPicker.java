@@ -41,10 +41,16 @@ public class RuleBasedJoinOrderPicker {
             graph.put(filter, new ArrayList<>());
         }
 
+        Set<Expression> seenFullConditions = new HashSet<>();
         for (TableFilter filter: filters) {
             Expression fullCondition = filter.getFullCondition();
-            if (fullCondition != null) {
+
+            if (fullCondition == null) {
+                continue;
+            }
+            if (!seenFullConditions.contains(fullCondition)) {
                 addConnections(fullCondition, graph);
+                seenFullConditions.add(fullCondition);
             }
         }
 
@@ -57,8 +63,8 @@ public class RuleBasedJoinOrderPicker {
                 addConnections(expression.getSubexpression(i), graph);
             }
         } else if (expression instanceof Comparison) {
-            System.out.println("Comparison expression");
-            System.out.println(expression);
+//            System.out.println("Comparison expression");
+//            System.out.println(expression);
 
             Expression left = expression.getSubexpression(0);
             Expression right = expression.getSubexpression(1);
@@ -67,13 +73,17 @@ public class RuleBasedJoinOrderPicker {
                 TableFilter leftFilter = ((ExpressionColumn) left).getTableFilter();
                 TableFilter rightFilter = ((ExpressionColumn) right).getTableFilter();
 
-                System.out.println("Table Filters");
-                System.out.println(leftFilter);
-                System.out.println(rightFilter);
+//                System.out.println("Table Filters");
+//                System.out.println(leftFilter);
+//                System.out.println(rightFilter);
 
                 if (leftFilter != null && rightFilter != null && leftFilter != rightFilter) {
-                    graph.get(leftFilter).add(rightFilter);
-                    graph.get(rightFilter).add(leftFilter);
+                    if (!graph.get(leftFilter).contains(rightFilter)) {
+                        graph.get(leftFilter).add(rightFilter);
+                    }
+                    if (!graph.get(rightFilter).contains(leftFilter)) {
+                        graph.get(rightFilter).add(leftFilter);
+                    }
                 }
             }
         }
@@ -82,15 +92,15 @@ public class RuleBasedJoinOrderPicker {
     private void getOrder(TableFilter currentFilter, Map<TableFilter, List<TableFilter>> graph, List<TableFilter> order, Set<TableFilter> visited) {
         visited.add(currentFilter);
         order.add(currentFilter);
-        System.out.println("Current Order");
-        System.out.println(order);
+//        System.out.println("Current Order");
+//        System.out.println(order);
 
         List<TableFilter> connections = graph.get(currentFilter);
 
         if (connections != null) {
             connections.sort(Comparator.comparingLong(connectedFilter -> connectedFilter.getTable().getRowCountApproximation(session)));
-            System.out.println("Sorted Connections");
-            System.out.println(connections);
+//            System.out.println("Sorted Connections");
+//            System.out.println(connections);
             for (TableFilter connection : connections) {
                 if (!visited.contains(connection)) {
                     getOrder(connection, graph, order, visited);
